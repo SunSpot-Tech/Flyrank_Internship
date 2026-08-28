@@ -1,0 +1,12 @@
+{
+  "base_rate": 0.191,
+  "precision_at_20_grouped": 1.0,
+  "precision_at_50_grouped": 0.92,
+  "precision_at_100_grouped": 0.88,
+  "precision_at_100_naive": 0.93,
+  "known_limitations": [
+    "floor_effect_low_volume_pages",
+    "client_grouped_gap_at_k100",
+    "no_causal_design"
+  ]
+}

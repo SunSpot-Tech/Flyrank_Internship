@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A public, reproducible research paper on ranking content-refresh candidates with an interpretable machine-learning workflow.">
+  <title>Ranking Content-Refresh Candidates: A Public-Safe ML Study</title>
+  <style>
+    :root{--ink:#17202a;--muted:#5d6875;--line:#dce3ea;--paper:#fff;--wash:#f4f7fa;--accent:#176b87;--accent2:#b45f06;--max:980px}
+    *{box-sizing:border-box} body{margin:0;background:var(--wash);color:var(--ink);font:16px/1.65 Georgia,serif}
+    .page{max-width:var(--max);margin:auto;background:var(--paper);min-height:100vh;padding:clamp(24px,5vw,72px)}
+    header{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:34px}.kicker{font:700 12px/1.2 system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+    h1{font:clamp(32px,5vw,54px);line-height:1.08;letter-spacing:-.03em;margin:14px 0 16px;max-width:800px} h2{font:clamp(24px,3vw,32px);line-height:1.2;margin:54px 0 16px;border-top:2px solid var(--ink);padding-top:12px} h3{font-size:20px;margin-top:30px} p{max-width:78ch}.dek{font-size:20px;line-height:1.45;color:var(--muted);max-width:760px}.byline{font:14px system-ui,sans-serif;color:var(--muted);margin-top:24px}
+    .abstract{background:#edf6f8;border-left:5px solid var(--accent);padding:20px 24px;margin:28px 0}.abstract strong{font-family:system-ui,sans-serif}.callout{background:#fff8ed;border-left:5px solid var(--accent2);padding:16px 20px;margin:24px 0}
+    table{border-collapse:collapse;width:100%;margin:20px 0;font:14px/1.4 system-ui,sans-serif}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}th{background:#f1f4f6;font-weight:700}td.num,th.num{text-align:right;white-space:nowrap}.best{background:#eef7f2;font-weight:700}
+    figure{margin:30px 0}figure img{display:block;width:100%;height:auto;border:1px solid var(--line);background:#fff;padding:10px}figcaption{font:14px/1.5 system-ui,sans-serif;color:var(--muted);margin-top:9px}figcaption strong{color:var(--ink)}
+    code{font: .9em ui-monospace,SFMono-Regular,Menlo,monospace;background:#f1f3f5;padding:2px 5px;border-radius:3px}pre{overflow:auto;background:#18232d;color:#eaf2f5;padding:18px;border-radius:5px;font:13px/1.6 ui-monospace,monospace}a{color:var(--accent)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:22px 0}.stat{border:1px solid var(--line);padding:16px}.stat b{display:block;font:700 28px system-ui,sans-serif;color:var(--accent)}.stat span{font:13px system-ui,sans-serif;color:var(--muted)}
+    footer{border-top:1px solid var(--line);margin-top:60px;padding-top:24px;color:var(--muted);font-size:14px}@media(max-width:680px){.page{padding:24px 18px}.grid{grid-template-columns:1fr}table{font-size:12px}th,td{padding:8px 5px}}
+  </style>
+</head>
+<body><main class="page">
+<header>
+  <div class="kicker">Machine Learning · ML-11 · Research artifact</div>
+  <h1>Ranking Content-Refresh Candidates</h1>
+  <p class="dek">A public-safe study of whether a model can prioritize existing content for human review more effectively than a transparent rule baseline.</p>
+  <div class="byline">Prepared for the FlyRank ML Internship · August 2026 · <a href="https://github.com/SunSpot-Tech/Flyrank_Internship">source repository</a></div>
+</header>
+
+<section id="abstract"><h2>Title + Abstract</h2><div class="abstract">
+<p><strong>Question.</strong> Can a supervised model rank existing content-refresh candidates more precisely than a transparent rule-based queue, without using titles, URLs, client names, domains, keywords, or label-derived trend fields?</p>
+<p><strong>Method.</strong> I used the bundled anonymized 30,000-row teaching slice, defined decline as <code>trend_direction == "down"</code>, built 52 numeric and categorical features from the permitted content and performance fields, and compared logistic regression, a decision tree, random forest, and a rule baseline under a client-holdout split.</p>
+<p><strong>Result.</strong> The selected random forest achieved ROC AUC 0.747, average precision 0.610, and Precision@50 0.680 on the holdout, versus 0.627, 0.468, and 0.240 for the baseline rules on the same evaluation design.</p>
+<p><strong>Interpretation.</strong> The model improves ranking quality in this slice, but the result is an association for prioritization—not a causal estimate, a forecast of a search engine’s algorithm, or evidence that refreshing a page will improve traffic.</p>
+<p><strong>Use.</strong> The practical output is a ranked reviewer queue: inspect high-confidence candidates first, verify editorial context manually, and measure any subsequent refresh experiment separately.</p>
+</div></section>
+
+<section id="introduction"><h2>1. Introduction / Problem statement</h2>
+<p>Content teams often have more pages that might deserve attention than they can review in one work cycle. The operational decision is therefore not “which page is good?” but “which existing items should a human inspect first, given limited review capacity?”</p>
+<p>This study treats that decision as a ranking problem. A false positive costs reviewer time; a false negative can delay attention to a genuinely declining item. The model is designed as decision support for triage, not an automatic publishing or deletion system.</p>
+<div class="callout"><strong>Central claim.</strong> On this anonymized teaching slice and this client-holdout split, the random-forest ranking separates labeled declining items better than the hand-written baseline. The claim is limited to measured ranking performance in this evaluation setting.</div>
+</section>
+
+<section id="data"><h2>2. Data</h2>
+<p>The analysis uses the repository’s bundled <code>content_refresh_anonymized.csv</code> starter slice: 30,000 rows, with aggregated content and search-performance measures over a trailing 90-day window ending at export time. The label is available for evaluation but is excluded from the feature matrix.</p>
+<table><thead><tr><th>Item</th><th>Specification</th></tr></thead><tbody>
+<tr><td>Release used</td><td>Bundled anonymized starter CSV, not the full warehouse release.</td></tr>
+<tr><td>Rows</td><td>30,000 input rows; 27,675 training rows and 2,325 client-held-out test rows.</td></tr>
+<tr><td>Time window</td><td>Trailing 90-day aggregate features; trend label compares the last 30 days with the previous 30 days within that reporting window.</td></tr>
+<tr><td>Label</td><td><code>is_declining_label = 1</code> when <code>trend_direction == "down"</code>; 16,262 positive rows, a 54.2% positive rate.</td></tr>
+<tr><td>Excluded</td><td>Titles, URLs, domains, keywords, client-identifying fields, provider/model names, <code>trend_direction</code>, and <code>trend_pct</code>. The trend fields define the label and would leak the answer.</td></tr>
+</tbody></table>
+<p>The repository documents a separate full pseudonymized warehouse release of approximately 79 million daily rows. It was not downloaded or used for the numbers on this page. That distinction is deliberate: the results below are reproducible from the public repository’s bundled slice, and no claim is made that this experiment itself trained on 79 million rows.</p>
+</section>
+
+<section id="methodology"><h2>3. Methodology</h2>
+<h3>Features and assumptions</h3>
+<p>The pipeline imputes permitted numeric missing values with zero and categorical missing values with <code>unknown</code>, then derives log-scaled traffic fields and interpretable tiers. The model uses 19 numeric features, including search volume, competition, content length, log impressions/clicks/sessions, activity-day counts, age, recency, CTR, position, engagement, scroll rate, and AI-traffic share, plus eight categorical features such as competition level, content type, intent, age, freshness, word-count, impression, and position tiers.</p>
+<p>These are predictive features, not causes. In particular, feature importance indicates how the fitted random forest partitions this dataset; it does not show that changing a feature will cause the label to change.</p>
+<h3>Label and baseline</h3>
+<p>The baseline is a transparent rules-based refresh score built before model selection. It is a fair comparator because it ranks the same held-out rows for the same binary decline label and is evaluated with the same ranking metrics. The random forest is selected by holdout Precision@50, matching the practical capacity framing of reviewing a short top queue.</p>
+<h3>Validation and leakage checks</h3>
+<p>The split is a <strong>client holdout</strong>: client groups are kept apart between training and test sets to reduce cross-client memorization. Random seeds are fixed in the pipeline. The label-derived fields <code>trend_direction</code> and <code>trend_pct</code> are excluded from features, and pseudonymous IDs are used only for grouping, never as predictors. The full-release query-window warning is also documented in the repository; overlapping label-period fields must not be used as features in a future time-forward experiment.</p>
+</section>
+
+<section id="results"><h2>4. Results</h2>
+<div class="grid"><div class="stat"><b>0.747</b><span>Random-forest ROC AUC</span></div><div class="stat"><b>0.680</b><span>Random-forest Precision@50</span></div><div class="stat"><b>54.2%</b><span>Holdout label-positive rate</span></div></div>
+<table><thead><tr><th>Method</th><th class="num">ROC AUC</th><th class="num">Average precision</th><th class="num">Precision@50</th><th class="num">Recall</th><th class="num">F1</th></tr></thead><tbody>
+<tr><td>Rule baseline</td><td class="num">0.627</td><td class="num">0.468</td><td class="num">0.240</td><td class="num">0.189</td><td class="num">0.274</td></tr>
+<tr><td>Logistic regression</td><td class="num">0.700</td><td class="num">0.522</td><td class="num">0.400</td><td class="num">0.567</td><td class="num">0.566</td></tr>
+<tr><td>Decision tree</td><td class="num">0.742</td><td class="num">0.575</td><td class="num">0.660</td><td class="num">0.716</td><td class="num">0.634</td></tr>
+<tr class="best"><td>Random forest</td><td class="num">0.747</td><td class="num">0.610</td><td class="num">0.680</td><td class="num">0.741</td><td class="num">0.638</td></tr>
+</tbody></table>
+<figure><img src="assets/top_feature_importance.svg" alt="Horizontal bar chart of the most important random-forest features"><figcaption><strong>Figure 1.</strong> The largest fitted importances are days with impressions, log impressions, average position, and content age. These are predictive associations, not causal effects.</figcaption></figure>
+<figure><img src="assets/action_mix.svg" alt="Bar chart showing the distribution of recommended queue actions"><figcaption><strong>Figure 2.</strong> The exported queue maps model/rule signals into reviewer actions; the queue is an aid for inspection, not an automatic decision.</figcaption></figure>
+<figure><img src="assets/confidence_mix.svg" alt="Chart showing high, medium, and low confidence queue groups"><figcaption><strong>Figure 3.</strong> Confidence bands provide a workload-oriented way to stage review rather than pretending that every score is equally certain.</figcaption></figure>
+<p>The model’s Precision@50 is 0.680 versus 0.240 for the baseline, an absolute improvement of 0.440 on the same holdout ranking task. Because the positive rate is 54.2%, the top-50 result should be interpreted alongside the base rate and the other metrics; it is not a guarantee that every top-ranked item needs a refresh.</p>
+</section>
+
+<section id="limitations"><h2>5. Limitations &amp; honest framing</h2>
+<p>This is a retrospective experiment on an anonymized teaching slice. It does not establish causality, measure the effect of editing or refreshing content, predict a search engine’s ranking algorithm, or guarantee performance after deployment. The label is a proxy for a particular observed decline definition, and the trailing-window construction may not represent every publishing cadence.</p>
+<p>The client-holdout split is stronger than a random row split for testing cross-client generalization, but it is not a time-forward production simulation. The starter slice is also much smaller than the documented full warehouse release. Thresholds, missing-value treatment, score calibration, and subgroup performance should be revalidated before operational use.</p>
+</section>
+
+<section id="recommendations"><h2>6. Ranked recommendations</h2>
+<table><thead><tr><th>Rank</th><th>Action playbook</th><th>Reason and confidence</th></tr></thead><tbody>
+<tr><td>1</td><td>Review the high-confidence top queue first, checking page context and measurement quality before editing.</td><td>Highest expected triage value under a limited review budget; decision-support confidence only.</td></tr>
+<tr><td>2</td><td>Prioritize candidates with visible demand but weak CTR or engagement signals for editorial diagnosis.</td><td>These signals help distinguish “worth investigating” from “little observed opportunity”; they do not prove the remedy.</td></tr>
+<tr><td>3</td><td>Use content age and recent-update recency as review context, not as automatic refresh rules.</td><td>They are among the stronger model signals, but they may reflect confounding by content type or publishing policy.</td></tr>
+<tr><td>4</td><td>Run a controlled before/after or holdout experiment for any refresh intervention.</td><td>Only an appropriate experiment can estimate whether the intervention changed outcomes.</td></tr>
+<tr><td>5</td><td>Monitor performance by client group, time window, content type, and traffic volume before expanding.</td><td>Protects against distribution shift and the documented low-volume and client-group limitations.</td></tr>
+</tbody></table>
+</section>
+
+<section id="reproducibility"><h2>7. Reproducibility</h2>
+<p>The complete source, scripts, anonymized input, outputs, and working notebooks are in the <a href="https://github.com/SunSpot-Tech/Flyrank_Internship">GitHub repository</a>. The capstone notebook is <a href="https://github.com/SunSpot-Tech/Flyrank_Internship/blob/main/work/notebooks/capstone.ipynb"><code>work/notebooks/capstone.ipynb</code></a>; the generated model report and metrics are also linked from the repository’s <a href="https://github.com/SunSpot-Tech/Flyrank_Internship/tree/main/outputs">outputs directory</a>.</p>
+<pre>git clone https://github.com/SunSpot-Tech/Flyrank_Internship.git
+cd Flyrank_Internship
+python -m pip install -r requirements.txt
+python scripts/run_all.py</pre>
+<p>The pipeline uses the repository’s fixed random state and writes the feature vector, predictions, model metrics, ranked queue, charts, Markdown report, and PDF summary. The public page intentionally embeds only aggregate results and non-identifying examples.</p>
+</section>
+
+<section id="acknowledgments"><h2>8. Acknowledgments &amp; data credit</h2>
+<p><strong>Built on the <a href="https://flyrank.ai">FlyRank ML Internship dataset</a>.</strong> The data source and repository documentation are credited here as standard research practice. This public artifact uses the repository’s anonymized starter slice and excludes client-identifying details, raw queries, URLs, domains, titles, and keywords.</p>
+</section>
+
+<footer><p><strong>Research posture:</strong> measured ranking improvement on one public-safe anonymized slice; useful for review prioritization, insufficient for causal or universal claims.</p><p><a href="https://github.com/SunSpot-Tech/Flyrank_Internship">View source repository</a> · <a href="https://github.com/SunSpot-Tech/Flyrank_Internship/blob/main/DATA_USE.md">Data-use notes</a></p></footer>
+</main></body></html>

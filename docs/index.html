@@ -26,7 +26,7 @@
   <div class="byline">Prepared for the FlyRank ML Internship · August 2026 · <a href="https://github.com/SunSpot-Tech/Flyrank_Internship">source repository</a></div>
 </header>
 
-<section id="abstract"><h2>Title + Abstract</h2><div class="abstract">
+<section id="abstract"><h2>Abstract</h2><div class="abstract">
 <p><strong>Question.</strong> Can a supervised model rank existing content-refresh candidates more precisely than a transparent rule-based queue, without using titles, URLs, client names, domains, keywords, or label-derived trend fields?</p>
 <p><strong>Method.</strong> I used the bundled anonymized 30,000-row teaching slice, defined decline as <code>trend_direction == "down"</code>, built 52 numeric and categorical features from the permitted content and performance fields, and compared logistic regression, a decision tree, random forest, and a rule baseline under a client-holdout split.</p>
 <p><strong>Result.</strong> The selected random forest achieved ROC AUC 0.747, average precision 0.610, and Precision@50 0.680 on the holdout, versus 0.627, 0.468, and 0.240 for the baseline rules on the same evaluation design.</p>
